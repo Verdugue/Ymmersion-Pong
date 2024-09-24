@@ -2,6 +2,34 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
+
+class Ball {
+    int x, y;
+    int diameter;
+    double xSpeed, ySpeed;
+
+    public Ball(int x, int y, int diameter, double xSpeed, double ySpeed) {
+        this.x = x;
+        this.y = y;
+        this.diameter = diameter;
+        this.xSpeed = xSpeed;
+        this.ySpeed = ySpeed;
+    }
+    public void move() {
+        x += xSpeed;
+        y += ySpeed;
+    }
+
+    public void reverseX() {
+        xSpeed = -xSpeed;
+    }
+
+    public void reverseY() {
+        ySpeed = -ySpeed;
+    }
+}
 
 public class PongGame extends JPanel implements KeyListener, ActionListener {
     private int paddleWidth = 10;
@@ -16,7 +44,8 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
     private int ScoreP2 = 0;
     private int BonusType; 
 
-    private final int MAX_SCORE = 10;  // Limite du score
+
+    
 
     // Bonus/Malus
     private int bonusX = -100, bonusY = -100, bonusWidth = 100, bonusHeight = 100;
@@ -34,6 +63,8 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
 
     private Random random;
 
+
+    private List<Ball> balls;
     // Variable pour suivre quel paddle a touché la balle en dernier
     private boolean lastHitByPaddle1 = false; 
     private boolean controlsInvertedPaddle1 = false; // Inversion des contrôles du paddle 1
@@ -45,9 +76,15 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
  private SoundPlayer malusSound;
  private SoundPlayer ambianceSound;
  
+ private Image bonusSpeedUpImage;
+ private Image malusSlowDownImage;
+ private Image malusMultiBallImage;
+ private Image malusPaddleShrinkImage;
+ 
+
 
  public PongGame() {
-    this.setPreferredSize(new Dimension(500, 300));
+    this.setPreferredSize(new Dimension(1200, 800));
     this.setBackground(Color.BLACK);
     this.setFocusable(true);
     this.addKeyListener(this);
@@ -59,6 +96,10 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
 
     random = new Random();
 
+    balls = new ArrayList<>();
+    balls.add(new Ball(250, 150, ballDiameter, ballXSpeed, ballYSpeed)); // Ajouter la première balle
+
+
     // Timer pour générer des bonus/malus toutes les 7 secondes
     bonusTimer = new Timer(7000, evt -> spawnBonus());
     bonusTimer.start();
@@ -68,87 +109,111 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
     malusSound = new SoundPlayer("malus.wav");
     ambianceSound = new SoundPlayer("ambiance.wav");
    
+    bonusSpeedUpImage = new ImageIcon("slow.png").getImage();
+    malusSlowDownImage = new ImageIcon("speed.png").getImage();
+    malusMultiBallImage = new ImageIcon("multi.png").getImage();
+    malusPaddleShrinkImage = new ImageIcon("shrink.png").getImage();
+    
+
     ambianceSound.loop();
 }
 
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        g.setColor(Color.WHITE);
-        
-        // Afficher les paddles avec bords arrondis
-    g.fillRoundRect(0, paddle1Y, paddleWidth, paddle1Height, 20, 20); // Paddle 1
-    g.fillRoundRect(getWidth() - paddleWidth, paddle2Y, paddleWidth, paddle2Height, 20, 20); // Paddle 2
-        
-        
-        // Afficher la balle
-        g.fillOval(ballX, ballY, ballDiameter, ballDiameter);
-        
-        // Afficher les scores
-        g.setFont(new Font("Arial", Font.BOLD, 20));  // Définir une police plus grande
-        g.drawString("Player 1: " + ScoreP1, 50, 30);  // Afficher le score du joueur 1
-        g.drawString("Player 2: " + ScoreP2, getWidth() - 150, 30);  // Afficher le score du joueur 2
-        
-        // Dessiner le bonus/malus s'il est actif
-        if (bonusActive) {
-            g.setColor(isBonus ? Color.GREEN : Color.RED);
-            g.fillRect(bonusX, bonusY, bonusWidth, bonusHeight);
+@Override
+protected void paintComponent(Graphics g) {
+    super.paintComponent(g);
+    
+    // Afficher les paddles
+    g.setColor(Color.WHITE);
+    g.fillRoundRect(0, paddle1Y, paddleWidth, paddle1Height, 20, 20);
+    g.fillRoundRect(getWidth() - paddleWidth, paddle2Y, paddleWidth, paddle2Height, 20, 20);
+
+   
+        // Afficher toutes les balles
+        for (Ball ball : balls) {
+            g.fillOval(ball.x, ball.y, ball.diameter, ball.diameter);
+        }
+    // Afficher les scores
+    g.setFont(new Font("Arial", Font.BOLD, 20));
+    g.drawString("Player 1: " + ScoreP1, 50, 30);
+    g.drawString("Player 2: " + ScoreP2, getWidth() - 150, 30);
+
+    // Dessiner le bonus/malus s'il est actif
+    if (bonusActive) {
+        switch (BonusType) {
+            case 1:  // Accélération (bonus)
+                g.drawImage(bonusSpeedUpImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
+                break;
+            case 2:  // Inversion des contrôles (malus)
+                g.drawImage(malusSlowDownImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
+                break;
+            case 3:  // Rétrécissement du paddle (malus)
+                g.drawImage(malusPaddleShrinkImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
+                break;
+            case 4:  // Multi-balles (malus)
+                g.drawImage(malusMultiBallImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
+                break;
         }
     }
+}
+
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (ScoreP1 >= MAX_SCORE || ScoreP2 >= MAX_SCORE) {
-            endGame();  // Vérifier si l'un des joueurs a atteint le score maximal
-            return;
-        }
+        // if (ScoreP1 >= MAX_SCORE || ScoreP2 >= MAX_SCORE) {
+        //     endGame();  // Vérifier si l'un des joueurs a atteint le score maximal
+        //     return;
+        // }
         
         ballX += ballXSpeed;
         ballY += ballYSpeed;
     
-        if (ballY <= 0 || ballY >= getHeight() - ballDiameter) {
-            ballYSpeed = -ballYSpeed;
-        }
+        for (Ball ball : balls) {
+            ball.move();
+            
+ // Gestion des rebonds sur le haut et le bas
+ if (ball.y <= 0 || ball.y >= getHeight() - ball.diameter) {
+    ball.reverseY();
+}
+
     
         // Paddle 1 touche la balle
-        if (ballX <= paddleWidth && ballY + ballDiameter >= paddle1Y && ballY <= paddle1Y + paddle1Height) {
-           
-            ballXSpeed = Math.abs(ballXSpeed); // Assurez-vous que la balle va à droite
+        if (ball.x <= paddleWidth && ball.y + ball.diameter >= paddle1Y && ball.y <= paddle1Y + paddle1Height) {
+            ball.xSpeed = Math.abs(ball.xSpeed); // Assurez-vous que la balle va à droite
             // Calculer le point de contact
-            int contactY = ballY + ballDiameter / 2 - paddle1Y; // Point de contact relatif
+            int contactY = ball.y + ball.diameter / 2 - paddle1Y; // Point de contact relatif
             double normalizedContact = (double) contactY / paddle1Height; // Normaliser le contact
-            ballYSpeed = (normalizedContact - 0.5) * 2 * ballXSpeed; // Ajuster la vitesse en Y
+            ball.ySpeed = (normalizedContact - 0.5) * 2 * ball.xSpeed; // Ajuster la vitesse en Y
             lastHitByPaddle1 = true;
-            
         }
-    
+
         // Paddle 2 touche la balle
-        if (ballX >= getWidth() - paddleWidth - ballDiameter && ballY + ballDiameter >= paddle2Y && ballY <= paddle2Y + paddle2Height) {
-          
-            ballXSpeed = -Math.abs(ballXSpeed); // Assurez-vous que la balle va à gauche
+        if (ball.x >= getWidth() - paddleWidth - ball.diameter && ball.y + ball.diameter >= paddle2Y && ball.y <= paddle2Y + paddle2Height) {
+            ball.xSpeed = -Math.abs(ball.xSpeed); // Assurez-vous que la balle va à gauche
             // Calculer le point de contact
-            int contactY = ballY + ballDiameter / 2 - paddle2Y; // Point de contact relatif
+            int contactY = ball.y + ball.diameter / 2 - paddle2Y; // Point de contact relatif
             double normalizedContact = (double) contactY / paddle2Height; // Normaliser le contact
-            ballYSpeed = (0.5 - normalizedContact) * 2 * ballXSpeed; // Ajuster la vitesse en Y
+            ball.ySpeed = (0.5 - normalizedContact) * 2 * ball.xSpeed; // Ajuster la vitesse en Y
             lastHitByPaddle1 = false; // On a touché la paddle 2
-          
         }
 
     
-        // Gérer les sorties de balle
-        if (ballX < 0 || ballX > getWidth()) {
-            scoreP();  // Mettre à jour les scores lorsque la balle sort
-        }
-    
-        // Gérer la collision de la balle avec le bonus/malus
-        if (bonusActive && ballX + ballDiameter >= bonusX && ballX <= bonusX + bonusWidth &&
-            ballY + ballDiameter >= bonusY && ballY <= bonusY + bonusHeight) {
-            applyBonusOrMalus();
-            bonusActive = false;  // Désactiver le bonus/malus après collision
-        }
-    
-        repaint();
+    // Gérer les sorties de balle
+    if (ball.x < 0 || ball.x > getWidth()) {
+        scoreP();
+       // Réinitialiser la position de la balle
+        ball.x = getWidth() / 2 - ball.diameter / 2;
+        ball.y = getHeight() / 2 - ball.diameter / 2;
     }
+}
+      // Gérer la collision de la balle avec le bonus/malus
+      if (bonusActive && balls.stream().anyMatch(ball -> ball.x + ball.diameter >= bonusX && ball.x <= bonusX + bonusWidth &&
+      ball.y + ball.diameter >= bonusY && ball.y <= bonusY + bonusHeight)) {
+  applyBonusOrMalus();
+  bonusActive = false;  // Désactiver le bonus/malus après collision
+}
+
+repaint();
+}
     
 
     // Méthode pour déplacer la paddle 1 en fonction de la direction
@@ -206,78 +271,60 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
     }
 
     // Génération aléatoire d'un bonus/malus
-    public void spawnBonus() {
+    private void spawnBonus() {
+        BonusType = random.nextInt(4) + 1;  // Choisir un type de bonus/malus
         bonusX = random.nextInt(getWidth() - bonusWidth);
         bonusY = random.nextInt(getHeight() - bonusHeight);
-        BonusType = random.nextInt(5);
-        isBonus = random.nextBoolean();  // Choisir si c'est un bonus ou un malus
-        bonusActive = true;  // Activer le bonus/malus
+        bonusActive = true;
     }
 
-    // Appliquer les effets du bonus ou malus
-    public void applyBonusOrMalus() {
+    private void applyBonusOrMalus() {
         switch (BonusType) {
-            
-            case 1:
-                ballXSpeed += (isBonus ? 5 : -2);  // Bonus : augmenter la vitesse, Malus : la diminuer
-                ballYSpeed += (isBonus ? 5 : -2);
-                if (isBonus) {
-                    bonusSound.play(); // Joue le son de bonus
-                } else {
-                    malusSound.play(); // Joue le son de malus
+            case 1: // Bonus - Accélérer la balle
+                for (Ball ball : balls) {
+                    ball.xSpeed *= 1.5; // Augmente la vitesse de la balle
                 }
                 break;
-            case 2:
+            case 2: // Malus - Inverser les contrôles
+                controlsInvertedPaddle1 = !controlsInvertedPaddle1;
+                controlsInvertedPaddle2 = !controlsInvertedPaddle2;
+                break;
+            case 3: // Malus - Rétrécir le paddle
                 if (lastHitByPaddle1) {
-                    controlsInvertedPaddle1 = !isBonus;  // Inverser les contrôles du joueur 1
-                    if (!isBonus) { // Si c'est un malus
-                        startMalusTimer(1);  // Démarrer le timer de malus pour le joueur 1
-                    }
+                    paddle1Height = Math.max(10, paddle1Height / 2); // Rétrécir le paddle 1
                 } else {
-                    System.out.println("Joue le son de bonus !");
-bonusSound.play();
-                    controlsInvertedPaddle2 = !isBonus;  // Inverser les contrôles du joueur 2
-                    if (!isBonus) { // Si c'est un malus
-                        startMalusTimer(2);  // Démarrer le timer de malus pour le joueur 2
-                    }
+                    paddle2Height = Math.max(10, paddle2Height / 2); // Rétrécir le paddle 2
                 }
                 break;
-            // Ajoutez d'autres types de bonus/malus ici si nécessaire
-            case 3:
-                if (lastHitByPaddle1) {
-                    paddle1Height = Math.max(60, paddle1Height - 20); // Réduire la taille du paddle 1
-                } else {
-                    System.out.println("Joue le son de bonus !");
-bonusSound.play();
-                    paddle2Height = Math.max(60, paddle2Height - 20); // Réduire la taille du paddle 2
-                }
+            case 4: // Malus - Ajouter une balle supplémentaire
+                balls.add(new Ball(250, 150, ballDiameter, ballXSpeed, ballYSpeed)); // Ajouter une nouvelle balle
                 break;
         }
     }
 
-    // Méthode pour démarrer le timer de malus
-    private void startMalusTimer(int player) {
-        malusTimer = new Timer(10000, evt -> {
-            if (player == 1) {
-                controlsInvertedPaddle1 = false;  // Rétablir les contrôles du joueur 1
-            } else {
-                controlsInvertedPaddle2 = false;  // Rétablir les contrôles du joueur 2
-            }
-            malusTimer.stop();  // Arrêter le timer de malus
-        });
-        malusTimer.setRepeats(false); // Exécuter une seule fois
-        malusTimer.start();  // Démarrer le timer
-    }
+    // // Méthode pour démarrer le timer de malus
+    // private void startMalusTimer(int player) {
+    //     malusTimer = new Timer(10000, evt -> {
+    //         if (player == 1) {
+    //             controlsInvertedPaddle1 = false;  // Rétablir les contrôles du joueur 1
+    //         } else {
+    //             controlsInvertedPaddle2 = false;  // Rétablir les contrôles du joueur 2
+    //         }
+    //         malusTimer.stop();  // Arrêter le timer de malus
+    //     });
+    //     malusTimer.setRepeats(false); // Exécuter une seule fois
+    //     malusTimer.start();  // Démarrer le timer
+    // }
 
-    private void endGame() {
-        String winner = (ScoreP1 >= MAX_SCORE) ? "Player 1 wins!" : "Player 2 wins!";
-        JOptionPane.showMessageDialog(this, winner, "Game Over", JOptionPane.INFORMATION_MESSAGE);
-        timer.stop();  // Arrêter le jeu
-        bonusTimer.stop();  // Arrêter le timer des bonus/malus
-        if (malusTimer != null) {
-            malusTimer.stop();  // Arrêter le timer de malus
-        }
-    }
+    // private void endGame() {
+    //     String winner = (ScoreP1 >= MAX_SCORE) ? "Player 1 wins!" : "Player 2 wins!";
+    //     JOptionPane.showMessageDialog(this, winner, "Game Over", JOptionPane.INFORMATION_MESSAGE);
+    //     timer.stop();  // Arrêter le jeu
+    //     bonusTimer.stop();  // Arrêter le timer des bonus/malus
+    //     if (malusTimer != null) {
+    //         malusTimer.stop();  // Arrêter le timer de malus
+    //     }
+    // }
 
     @Override
     public void keyPressed(KeyEvent e) {
