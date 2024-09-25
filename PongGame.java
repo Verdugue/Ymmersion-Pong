@@ -77,7 +77,7 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
  private SoundPlayer ambianceSound;
  
  private Image bonusSpeedUpImage;
- private Image malusSlowDownImage;
+ private Image controlemalus;
  private Image malusMultiBallImage;
  private Image malusPaddleShrinkImage;
  
@@ -88,11 +88,11 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
     this.setBackground(Color.BLACK);
     this.setFocusable(true);
     this.addKeyListener(this);
-    timer = new Timer(10, this);
+    timer = new Timer(3, this);
     timer.start();
 
-    paddle1MoveTimer = new Timer(10, evt -> movePaddle1());
-    paddle2MoveTimer = new Timer(10, evt -> movePaddle2());
+    paddle1MoveTimer = new Timer(2, evt -> movePaddle1());
+    paddle2MoveTimer = new Timer(2, evt -> movePaddle2());
 
     random = new Random();
 
@@ -109,8 +109,8 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
     malusSound = new SoundPlayer("malus.wav");
     ambianceSound = new SoundPlayer("ambiance.wav");
    
-    bonusSpeedUpImage = new ImageIcon("slow.png").getImage();
-    malusSlowDownImage = new ImageIcon("speed.png").getImage();
+    bonusSpeedUpImage = new ImageIcon("speed.png").getImage();
+    controlemalus = new ImageIcon("controle.png").getImage();
     malusMultiBallImage = new ImageIcon("multi.png").getImage();
     malusPaddleShrinkImage = new ImageIcon("shrink.png").getImage();
     
@@ -144,7 +144,7 @@ protected void paintComponent(Graphics g) {
                 g.drawImage(bonusSpeedUpImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
                 break;
             case 2:  // Inversion des contrôles (malus)
-                g.drawImage(malusSlowDownImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
+                g.drawImage(controlemalus, bonusX, bonusY, bonusWidth, bonusHeight, this);
                 break;
             case 3:  // Rétrécissement du paddle (malus)
                 g.drawImage(malusPaddleShrinkImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
