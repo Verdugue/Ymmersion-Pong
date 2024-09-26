@@ -5,10 +5,15 @@ import java.util.Random;
 import java.util.ArrayList;
 import java.util.List;
 
+
+
 class Ball {
     int x, y;
     int diameter;
     double xSpeed, ySpeed;
+    private int countdown = -1;  // Variable pour stocker le temps restant avant le début
+    private Timer countdownTimer;  // Timer pour gérer le décompte
+
 
     public Ball(int x, int y, int diameter, double xSpeed, double ySpeed) {
         this.x = x;
@@ -39,9 +44,12 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
     private int ballX = 250, ballY = 150, ballDiameter = 50;
     private double ballXSpeed = 5;
     private double ballYSpeed = 5; // Changer en double
+    private int countdown = -1;  // Variable pour stocker le temps restant avant le début
+    private Timer countdownTimer; 
 
-    private int ScoreP1 = 0;
-    private int ScoreP2 = 0;
+    private int ScoreP1 = 0; // Score pour le joueur 1
+    private int ScoreP2 = 0; // Score pour le joueur 2
+
     private int BonusType; 
 
 
@@ -85,14 +93,16 @@ public class PongGame extends JPanel implements KeyListener, ActionListener {
 
  public PongGame() {
     this.setPreferredSize(new Dimension(1200, 800));
-    this.setBackground(Color.BLACK);
+    this.setBackground(new Color(0x0F9DE8));
+
     this.setFocusable(true);
     this.addKeyListener(this);
     timer = new Timer(3, this);
     timer.start();
 
-    paddle1MoveTimer = new Timer(2, evt -> movePaddle1());
-    paddle2MoveTimer = new Timer(2, evt -> movePaddle2());
+    paddle1MoveTimer = new Timer(10, evt -> movePaddle1());
+    paddle2MoveTimer = new Timer(10, evt -> movePaddle2());
+
 
     random = new Random();
 
@@ -123,7 +133,8 @@ protected void paintComponent(Graphics g) {
     super.paintComponent(g);
     
     // Afficher les paddles
-    g.setColor(Color.WHITE);
+    g.setColor(new Color(0, 51,102)); // Bleu ciel (RGB: 135, 206, 250)
+
     g.fillRoundRect(0, paddle1Y, paddleWidth, paddle1Height, 20, 20);
     g.fillRoundRect(getWidth() - paddleWidth, paddle2Y, paddleWidth, paddle2Height, 20, 20);
 
@@ -140,46 +151,45 @@ protected void paintComponent(Graphics g) {
     // Dessiner le bonus/malus s'il est actif
     if (bonusActive) {
         switch (BonusType) {
-            case 1:  // Accélération (bonus)
+            case 1:
                 g.drawImage(bonusSpeedUpImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
                 break;
-            case 2:  // Inversion des contrôles (malus)
+            case 2:
                 g.drawImage(controlemalus, bonusX, bonusY, bonusWidth, bonusHeight, this);
                 break;
-            case 3:  // Rétrécissement du paddle (malus)
+            case 3:
                 g.drawImage(malusPaddleShrinkImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
                 break;
-            case 4:  // Multi-balles (malus)
+            case 4:
                 g.drawImage(malusMultiBallImage, bonusX, bonusY, bonusWidth, bonusHeight, this);
                 break;
         }
+    }
+    if (countdown > 0) {
+        g.setFont(new Font("Arial", Font.BOLD, 100));
+        g.setColor(Color.RED);
+        g.drawString(String.valueOf(countdown), getWidth() / 2 - 50, getHeight() / 2);
     }
 }
 
 
     @Override
-    public void actionPerformed(ActionEvent e) {
-        // if (ScoreP1 >= MAX_SCORE || ScoreP2 >= MAX_SCORE) {
-        //     endGame();  // Vérifier si l'un des joueurs a atteint le score maximal
-        //     return;
-        // }
-        
-        ballX += ballXSpeed;
-        ballY += ballYSpeed;
-    
-        for (Ball ball : balls) {
-            ball.move();
-            
- // Gestion des rebonds sur le haut et le bas
- if (ball.y <= 0 || ball.y >= getHeight() - ball.diameter) {
-    ball.reverseY();
-}
+public void actionPerformed(ActionEvent e) {
+    if (countdown > 0) {
+        return; // Ne pas mettre à jour la balle pendant le décompte
+    }
 
-    
+    for (Ball ball : balls) {
+        ball.move();
+        
+        // Gestion des rebonds sur le haut et le bas
+        if (ball.y <= 0 || ball.y >= getHeight() - ball.diameter) {
+            ball.reverseY();
+        }
+
         // Paddle 1 touche la balle
         if (ball.x <= paddleWidth && ball.y + ball.diameter >= paddle1Y && ball.y <= paddle1Y + paddle1Height) {
             ball.xSpeed = Math.abs(ball.xSpeed); // Assurez-vous que la balle va à droite
-            // Calculer le point de contact
             int contactY = ball.y + ball.diameter / 2 - paddle1Y; // Point de contact relatif
             double normalizedContact = (double) contactY / paddle1Height; // Normaliser le contact
             ball.ySpeed = (normalizedContact - 0.5) * 2 * ball.xSpeed; // Ajuster la vitesse en Y
@@ -189,31 +199,31 @@ protected void paintComponent(Graphics g) {
         // Paddle 2 touche la balle
         if (ball.x >= getWidth() - paddleWidth - ball.diameter && ball.y + ball.diameter >= paddle2Y && ball.y <= paddle2Y + paddle2Height) {
             ball.xSpeed = -Math.abs(ball.xSpeed); // Assurez-vous que la balle va à gauche
-            // Calculer le point de contact
             int contactY = ball.y + ball.diameter / 2 - paddle2Y; // Point de contact relatif
             double normalizedContact = (double) contactY / paddle2Height; // Normaliser le contact
             ball.ySpeed = (0.5 - normalizedContact) * 2 * ball.xSpeed; // Ajuster la vitesse en Y
-            lastHitByPaddle1 = false; // On a touché la paddle 2
+            lastHitByPaddle1 = false; // On a touché le paddle 2
         }
-
     
-    // Gérer les sorties de balle
-    if (ball.x < 0 || ball.x > getWidth()) {
-        scoreP();
-       // Réinitialiser la position de la balle
-        ball.x = getWidth() / 2 - ball.diameter / 2;
-        ball.y = getHeight() / 2 - ball.diameter / 2;
+        // Gérer les sorties de balle
+        if (ball.x < 0 || ball.x > getWidth()) {
+            scoreP(); // Appeler la méthode pour gérer le score
+            // Ne réinitialisez pas la position de la balle ici
+        }
     }
-}
-      // Gérer la collision de la balle avec le bonus/malus
-      if (bonusActive && balls.stream().anyMatch(ball -> ball.x + ball.diameter >= bonusX && ball.x <= bonusX + bonusWidth &&
-      ball.y + ball.diameter >= bonusY && ball.y <= bonusY + bonusHeight)) {
-  applyBonusOrMalus();
-  bonusActive = false;  // Désactiver le bonus/malus après collision
+    
+    // Gérer la collision de la balle avec le bonus/malus
+    if (bonusActive && balls.stream().anyMatch(ball -> ball.x + ball.diameter >= bonusX && ball.x <= bonusX + bonusWidth &&
+            ball.y + ball.diameter >= bonusY && ball.y <= bonusY + bonusHeight)) {
+        applyBonusOrMalus();
+        bonusActive = false;  // Désactiver le bonus/malus après collision
+    }
+
+    repaint();
 }
 
-repaint();
-}
+
+
     
 
     // Méthode pour déplacer la paddle 1 en fonction de la direction
@@ -254,21 +264,77 @@ repaint();
         }
     }
 
-    public void scoreP() {
+    private static final int MAX_SCORE = 10;
+
+    private void scoreP() {
+        // Vérifier de quel côté la balle est sortie
         if (ballX < 0) {  // Si la balle sort du côté gauche
             ScoreP2 += 1;  // Le joueur 2 marque un point
         } else if (ballX > getWidth()) {  // Si la balle sort du côté droit
             ScoreP1 += 1;  // Le joueur 1 marque un point
         }
-        
-        // Réinitialiser la position de la balle
-        ballX = getWidth() / 2 - ballDiameter / 2;
-        ballY = getHeight() / 2 - ballDiameter / 2;
-        
-        // Réinitialiser la vitesse de la balle
-        ballXSpeed = 5;
-        ballYSpeed = 5;
+    
+        // Vérifiez si un joueur a atteint le score maximum
+        if (ScoreP1 >= MAX_SCORE || ScoreP2 >= MAX_SCORE) {
+            endGame();  // Appeler la méthode pour finir le jeu
+            return;
+        }
+    
+        resetGameState(); // Réinitialiser l'état du jeu avant de démarrer le compte à rebours
+        startCountdown(); // Démarrer le décompte de 3 secondes
     }
+    
+    
+    
+    
+
+    private void startCountdown() {
+        countdown = 3;  // Initialiser le décompte à 3
+        countdownTimer = new Timer(1000, evt -> {
+            countdown--;  // Décrémenter le décompte
+            if (countdown <= 0) {
+                countdownTimer.stop();  // Arrêter le timer à 0
+                resetBallPosition();  // Réinitialiser la balle après le décompte
+                countdown = -1; // Réinitialiser le décompte pour qu'il ne soit plus affiché
+            }
+            repaint();  // Redessiner l'écran pour afficher le décompte
+        });
+        countdownTimer.start();  // Démarrer le timer du décompte
+    }
+    
+    
+    private void resetGameState() {
+        // Réinitialiser la taille des paddles
+        paddle1Height = 120;
+        paddle2Height = 120;
+        
+        // Réinitialiser les contrôles inversés
+        controlsInvertedPaddle1 = false;
+        controlsInvertedPaddle2 = false;
+    
+        // Réinitialiser le nombre de balles à une seule
+        balls.clear(); // Supprimer toutes les balles
+        balls.add(new Ball(getWidth() / 2 - ballDiameter / 2, getHeight() / 2 - ballDiameter / 2, ballDiameter, ballXSpeed, ballYSpeed)); // Ajouter une nouvelle balle
+    
+        // Autres réinitialisations nécessaires...
+    }
+
+    private void resetBallPosition() {
+        // Réinitialiser la position de chaque balle au centre
+        for (Ball ball : balls) {
+            ball.x = getWidth() / 2 - ball.diameter / 2;
+            ball.y = getHeight() / 2 - ball.diameter / 2;
+    
+            // Générer une direction aléatoire pour chaque balle
+            double angle = random.nextDouble() * Math.PI / 2 + Math.PI / 2; // Angle entre 45 et 135 degrés
+            ball.xSpeed = Math.cos(angle) * 5;  // Vitesse initiale
+            ball.ySpeed = Math.sin(angle) * 5;  // Vitesse initiale
+        }
+    }
+    
+
+    
+    
 
     // Génération aléatoire d'un bonus/malus
     private void spawnBonus() {
@@ -316,15 +382,16 @@ repaint();
     //     malusTimer.start();  // Démarrer le timer
     // }
 
-    // private void endGame() {
-    //     String winner = (ScoreP1 >= MAX_SCORE) ? "Player 1 wins!" : "Player 2 wins!";
-    //     JOptionPane.showMessageDialog(this, winner, "Game Over", JOptionPane.INFORMATION_MESSAGE);
-    //     timer.stop();  // Arrêter le jeu
-    //     bonusTimer.stop();  // Arrêter le timer des bonus/malus
-    //     if (malusTimer != null) {
-    //         malusTimer.stop();  // Arrêter le timer de malus
-    //     }
-    // }
+    private void endGame() {
+        String winner = (ScoreP1 >= MAX_SCORE) ? "Player 1 wins!" : "Player 2 wins!";
+        JOptionPane.showMessageDialog(this, winner, "Game Over", JOptionPane.INFORMATION_MESSAGE);
+        timer.stop();  // Arrêter le jeu
+        bonusTimer.stop();  // Arrêter le timer des bonus/malus
+        if (countdownTimer != null) {
+            countdownTimer.stop();  // Arrêter le timer de décompte
+        }
+    }
+    
 
     @Override
     public void keyPressed(KeyEvent e) {
